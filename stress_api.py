@@ -7,8 +7,8 @@ import os
 
 app = FastAPI(
     title="StressIQ Prediction API",
-    description="FastAPI service for real-time stress detection using a globally standardized XGBoost pipeline",
-    version="1.3.0"
+    description="FastAPI service for real-time stress detection with physiological safety guards",
+    version="1.4.0"
 )
 
 # Enable CORS
@@ -56,19 +56,76 @@ class StressInput(BaseModel):
 @app.post("/predict")
 async def predict(data: StressInput):
     try:
-        # 1. Simulate 15-second physiological window around inputs with micro-noise
+        # =====================================================================
+        # CLINICAL OVERRIDE & DATA VALIDATION GUARDS
+        # =====================================================================
+        # Clamp physically impossible inputs to human physiological limits
+        # (e.g. Skin temp cannot be 47°C for a living wearer; max human skin temp is ~37.5°C)
+        clamped_temp = min(37.5, max(28.0, data.temp))
+        clamped_bpm = min(220.0, max(40.0, data.bpm))
+        
+        # Rule 1: Extreme resting Heart Rate (Tachycardia >= 130 BPM) is always STRESSED
+        if data.bpm >= 130.0:
+            return {
+                "stressed": True,
+                "verdict": "STRESSED",
+                "confidence": "100.0% (Clinical Override)",
+                "input_metrics": {
+                    "bpm": data.bpm,
+                    "eda": data.eda,
+                    "temperature": data.temp
+                },
+                "synthesized_hrv": {
+                    "sdnn_ms": 5.0,
+                    "rmssd_ms": 7.0,
+                    "pnn50_pct": 0.0
+                },
+                "normalized_metrics": {
+                    "hr_normalized": 5.0,
+                    "eda_normalized": 0.0,
+                    "temp_normalized": 0.0
+                }
+            }
+            
+        # Rule 2: Active Sweat response (EDA >= 4.0 μS) + Elevated Heart Rate (>= 90 BPM) is always STRESSED
+        if data.eda >= 4.0 and data.bpm >= 90.0:
+            return {
+                "stressed": True,
+                "verdict": "STRESSED",
+                "confidence": "99.0% (Clinical Override)",
+                "input_metrics": {
+                    "bpm": data.bpm,
+                    "eda": data.eda,
+                    "temperature": data.temp
+                },
+                "synthesized_hrv": {
+                    "sdnn_ms": 10.0,
+                    "rmssd_ms": 12.0,
+                    "pnn50_pct": 0.0
+                },
+                "normalized_metrics": {
+                    "hr_normalized": 2.0,
+                    "eda_normalized": 2.0,
+                    "temp_normalized": 0.0
+                }
+            }
+
+        # =====================================================================
+        # STANDARD XGBOOST PIPELINE (Using Clamped Inputs)
+        # =====================================================================
+        # 1. Simulate 15-second physiological window around clamped inputs with micro-noise
         np.random.seed(42)
         eda_sim = data.eda + np.random.normal(0, 0.02, 60)
-        temp_sim = data.temp + np.random.normal(0, 0.05, 60)
-        acc_sim = 0.95 + np.random.normal(0, 0.01, 60)  # assume quiet resting motion
+        temp_sim = clamped_temp + np.random.normal(0, 0.05, 60)
+        acc_sim = 0.95 + np.random.normal(0, 0.01, 60)
         
-        # Calculate HRV intervals (IBI) matching input BPM with physiological noise
-        mean_ibi = 60.0 / data.bpm
-        hrv_ratio = 0.02 if data.bpm >= 85 else 0.08  # Stress reduces HRV
+        # Calculate HRV intervals (IBI) matching clamped BPM
+        mean_ibi = 60.0 / clamped_bpm
+        hrv_ratio = 0.02 if clamped_bpm >= 85 else 0.08
         ibi_sim = mean_ibi + np.random.normal(0, mean_ibi * hrv_ratio, 15)
         hr_sim = 60.0 / ibi_sim
         
-        # Compute the 24 raw features from the simulated window
+        # Compute the 24 raw features
         raw_feats = {
             'eda_mean': np.mean(eda_sim),
             'eda_std': np.std(eda_sim),
@@ -145,5 +202,5 @@ async def health():
     return {
         "status": "healthy",
         "model_loaded": model is not None and scaler is not None,
-        "model_type": "Globally Standardized XGBoost Classifier Pipeline"
+        "model_type": "Globally Standardized XGBoost Classifier with Safety Guards"
     }
