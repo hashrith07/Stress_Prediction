@@ -30,7 +30,6 @@ const output = document.getElementById('result-output');
 
 const verdictBanner = document.getElementById('verdict-banner');
 const verdictText = document.getElementById('verdict-text');
-const confidenceBadge = document.getElementById('confidence-badge');
 
 const outBpm = document.getElementById('out-bpm');
 const outEda = document.getElementById('out-eda');
@@ -91,7 +90,6 @@ manualForm.addEventListener('submit', async function(e) {
 
 function updateResultUI(data) {
     verdictText.textContent = data.verdict;
-    confidenceBadge.textContent = `${data.confidence} Confidence`;
 
     if (data.stressed) {
         verdictBanner.className = 'verdict-banner stressed';
