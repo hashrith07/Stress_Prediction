@@ -7,11 +7,11 @@ import os
 
 app = FastAPI(
     title="StressIQ Prediction API",
-    description="FastAPI service for real-time stress detection",
-    version="1.2.0"
+    description="FastAPI service for real-time stress detection using a globally standardized XGBoost pipeline",
+    version="1.3.0"
 )
 
-# Enable CORS for frontend/IoT integration
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,44 +21,18 @@ app.add_middleware(
 )
 
 # -----------------------------------------------------
-# Load XGBoost Model
+# Load XGBoost Model & Global StandardScaler
 # -----------------------------------------------------
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "stress_model_xgb.pkl")
+SCALER_PATH = os.path.join(os.path.dirname(__file__), "scaler_global.pkl")
 
 try:
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Model file not found at: {MODEL_PATH}")
+    if not os.path.exists(MODEL_PATH) or not os.path.exists(SCALER_PATH):
+        raise FileNotFoundError(f"Model/Scaler not found in: {os.path.dirname(__file__)}")
     model = joblib.load(MODEL_PATH)
+    scaler = joblib.load(SCALER_PATH)
 except Exception as e:
-    raise RuntimeError(f"Failed to load stress model: {str(e)}")
-
-# Universal Baseline statistics (mean, std) for ALL 24 features
-UNIVERSAL_BASELINE_STATS = {
-    'eda_mean': (3.909722, 2.919307),
-    'eda_std': (0.015316, 0.012573),
-    'eda_min': (3.789542, 2.922315),
-    'eda_max': (4.017380, 2.919094),
-    'eda_range': (0.227837, 0.082489),
-    'eda_slope': (-0.000001, 0.000005),
-    'temp_mean': (33.455559, 1.491818),
-    'temp_std': (0.028801, 0.033269),
-    'temp_min': (33.347298, 1.500663),
-    'temp_max': (33.615633, 1.472999),
-    'temp_range': (0.268336, 0.119731),
-    'temp_slope': (0.000001, 0.000012),
-    'acc_mean': (0.934601, 0.020249),
-    'acc_std': (0.005953, 0.005378),
-    'acc_min': (0.902707, 0.040405),
-    'acc_max': (0.968663, 0.045451),
-    'hr_mean': (72.327958, 11.350163),
-    'hr_std': (4.741177, 2.540253),
-    'hr_min': (64.384158, 11.183913),
-    'hr_max': (80.992244, 12.571506),
-    'ibi_mean': (0.849399, 0.129200),
-    'ibi_sdnn': (0.057669, 0.035679),
-    'ibi_rmssd': (0.053288, 0.046113),
-    'ibi_pnn50': (27.407869, 23.155375),
-}
+    raise RuntimeError(f"Failed to load stress model/scaler: {str(e)}")
 
 FEATURE_COLS = [
     'eda_mean', 'eda_std', 'eda_min', 'eda_max', 'eda_range', 'eda_slope',
@@ -126,13 +100,15 @@ async def predict(data: StressInput):
             'ibi_pnn50': (np.sum(np.abs(np.diff(ibi_sim)) > 0.05) / len(np.diff(ibi_sim))) * 100
         }
         
-        # 2. Normalize all 24 features using the universal baseline statistics mapping
-        X_live = np.zeros((1, 24))
+        # 2. Package raw features in the correct order
+        X_raw = np.zeros((1, 24))
         for idx, col in enumerate(FEATURE_COLS):
-            mean_val, std_val = UNIVERSAL_BASELINE_STATS[col]
-            X_live[0, idx] = (raw_feats[col] - mean_val) / std_val
+            X_raw[0, idx] = raw_feats[col]
             
-        # 3. Run XGBoost Prediction
+        # 3. Scale raw features using the fitted global scaler
+        X_live = scaler.transform(X_raw)
+        
+        # 4. Run XGBoost Prediction
         prediction = int(model.predict(X_live)[0])
         probabilities = model.predict_proba(X_live)[0]
         confidence = float(probabilities[prediction])
@@ -168,6 +144,6 @@ async def predict(data: StressInput):
 async def health():
     return {
         "status": "healthy",
-        "model_loaded": model is not None,
-        "model_type": "XGBoost Classifier (97.84% Accurate)"
+        "model_loaded": model is not None and scaler is not None,
+        "model_type": "Globally Standardized XGBoost Classifier Pipeline"
     }

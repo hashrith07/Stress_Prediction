@@ -264,16 +264,19 @@ def main():
     st.markdown("<div class='main-header'>🧠 StressIQ: Diagnostic Center</div>", unsafe_allow_html=True)
     st.markdown("<div class='main-subheader'>Calibrated Physiological Stress Detection & Simulation</div>", unsafe_allow_html=True)
     
-    # Model & Data Paths
+    # Model & Scaler Paths
     script_dir = os.path.dirname(__file__)
     model_path = os.path.join(script_dir, "stress_model_xgb.pkl")
+    scaler_path = os.path.join(script_dir, "scaler_global.pkl")
     wesad_dir = os.path.join(script_dir, "WESAD")
     
-    if not os.path.exists(model_path):
-        st.error("❌ Model file `stress_model_xgb.pkl` (97.84% accurate XGBoost) not found in project folder.")
+    if not os.path.exists(model_path) or not os.path.exists(scaler_path):
+        st.error("❌ Model file `stress_model_xgb.pkl` or `scaler_global.pkl` not found in project folder.")
         return
         
+    # Load Model & Scaler directly
     model = joblib.load(model_path)
+    scaler = joblib.load(scaler_path)
     
     # 🎮 Unified Diagnostics Selector
     st.sidebar.title("🎮 Diagnostic Console")
@@ -341,16 +344,18 @@ def main():
                 'ibi_pnn50': (np.sum(np.abs(np.diff(ibi_sim)) > 0.05) / len(np.diff(ibi_sim))) * 100
             }
             
-            # Normalize
-            X_live = np.zeros((1, 24))
-            for i, col in enumerate(FEATURE_COLS):
-                mean, std = UNIVERSAL_BASELINE_STATS[col]
-                X_live[0, i] = (raw_feats[col] - mean) / std
+            # Package raw features in correct order
+            X_raw = np.zeros((1, 24))
+            for idx, col in enumerate(FEATURE_COLS):
+                X_raw[0, idx] = raw_feats[col]
+                
+            # Scale raw features using the fitted global scaler
+            X_live = scaler.transform(X_raw)
             
             # Predict
             prediction = int(model.predict(X_live)[0])
             probabilities = model.predict_proba(X_live)[0]
-            confidence = probabilities[prediction]
+            confidence = float(probabilities[prediction])
             
             # Alert Card
             st.write("### 🚨 Diagnostic Output")
