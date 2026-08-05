@@ -35,7 +35,7 @@ const outBpm = document.getElementById('out-bpm');
 const outEda = document.getElementById('out-eda');
 const outTemp = document.getElementById('out-temp');
 
-const hrvSdnn = document.getElementById('hrv-sdnn');
+
 
 const zHr = document.getElementById('z-hr');
 const zEda = document.getElementById('z-eda');
@@ -99,7 +99,7 @@ function updateResultUI(data) {
     outEda.textContent = `${data.input_metrics.eda.toFixed(2)} μS`;
     outTemp.textContent = `${data.input_metrics.temperature.toFixed(1)} °C`;
 
-    hrvSdnn.textContent = `${data.synthesized_hrv.sdnn_ms} ms`;
+
 
     zHr.style.width = `${mapZScoreToPercent(data.normalized_metrics.hr_normalized)}%`;
     zEda.style.width = `${mapZScoreToPercent(data.normalized_metrics.eda_normalized)}%`;
