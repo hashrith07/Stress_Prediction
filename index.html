@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StressIQ | Real-Time Diagnostic Node</title>
+    <title>StressIQ | Integrated Diagnostic Node</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js for real-time scrolling sensor streams -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="glass-bg"></div>
@@ -14,23 +16,30 @@
         <!-- Header -->
         <header>
             <h1>🧠 Stress<span class="highlight">IQ</span></h1>
-            <p>Real-Time Physiological Stress Classifier & Diagnostics Node</p>
+            <p>Integrated Physiological Stress Classifier & Wearable Simulator</p>
         </header>
 
         <div class="dashboard-grid">
-            <!-- Left Column: Input Panel -->
+            <!-- Left Column: Input Control Panel -->
             <section class="card input-panel">
-                <h2>🎛️ Diagnostic Telemetry Input</h2>
-                <form id="stress-form">
-                    <!-- Target API URL (Optional helper for local testing) -->
-                    <div class="input-group api-group">
-                        <label for="api-url">API Endpoint URL</label>
-                        <input type="url" id="api-url" value="https://stress-prediction-auws.onrender.com" required>
-                    </div>
+                <h2>🎮 Diagnostic Console</h2>
+                
+                <!-- Toggle Mode Tabs -->
+                <div class="tab-container">
+                    <button type="button" id="tab-manual" class="tab-btn active">🎛️ Manual Input</button>
+                    <button type="button" id="tab-sensor" class="tab-btn">📡 Sensor Streaming</button>
+                </div>
 
-                    <div class="divider"></div>
+                <!-- API Endpoint Configuration -->
+                <div class="input-group api-group">
+                    <label for="api-url">API Endpoint URL</label>
+                    <input type="url" id="api-url" value="https://stress-prediction-auws.onrender.com" required>
+                </div>
 
-                    <!-- Core Metrics -->
+                <div class="divider"></div>
+
+                <!-- MODE A: MANUAL INPUT FORM -->
+                <form id="stress-form" class="mode-section">
                     <div class="input-group">
                         <label for="bpm">💓 Heart Rate (BPM)</label>
                         <input type="number" id="bpm" min="0" max="250" value="75" step="1" required>
@@ -49,17 +58,51 @@
                         <span class="range-info">Healthy range: 33.0 - 35.0 °C</span>
                     </div>
 
-
-
                     <button type="submit" class="btn-submit">Run AI Diagnostic</button>
                 </form>
+
+                <!-- MODE B: SENSOR STREAMING PANEL -->
+                <div id="sensor-stream-panel" class="mode-section hidden">
+                    <div class="input-group">
+                        <label for="subject-picker">Select Wearer (WESAD Subject)</label>
+                        <select id="subject-picker" class="custom-select">
+                            <option value="S2">Subject S2 (Baseline vs Math Stress)</option>
+                            <option value="S3">Subject S3 (Baseline vs Math Stress)</option>
+                            <option value="S4">Subject S4 (Baseline vs Math Stress)</option>
+                            <option value="S5">Subject S5 (Baseline vs Math Stress)</option>
+                            <option value="S6">Subject S6 (Baseline vs Math Stress)</option>
+                            <option value="S7">Subject S7 (Baseline vs Math Stress)</option>
+                            <option value="S8">Subject S8 (Baseline vs Math Stress)</option>
+                            <option value="S9">Subject S9 (Baseline vs Math Stress)</option>
+                            <option value="S10">Subject S10 (Baseline vs Math Stress)</option>
+                            <option value="S11">Subject S11 (Baseline vs Math Stress)</option>
+                            <option value="S13">Subject S13 (Baseline vs Math Stress)</option>
+                            <option value="S14">Subject S14 (Baseline vs Math Stress)</option>
+                            <option value="S15">Subject S15 (Baseline vs Math Stress)</option>
+                            <option value="S16">Subject S16 (Baseline vs Math Stress)</option>
+                            <option value="S17">Subject S17 (Baseline vs Math Stress)</option>
+                        </select>
+                    </div>
+
+                    <button type="button" id="btn-stream" class="btn-submit btn-stream-off">🔌 Connect Wearable Stream</button>
+
+                    <!-- Real-Time Scrolling Charts -->
+                    <div class="charts-container hidden" id="live-charts-area">
+                        <div class="chart-box">
+                            <canvas id="chart-hr" height="90"></canvas>
+                        </div>
+                        <div class="chart-box">
+                            <canvas id="chart-eda" height="90"></canvas>
+                        </div>
+                    </div>
+                </div>
             </section>
 
-            <!-- Right Column: Result Panel -->
+            <!-- Right Column: Result Diagnostic Panel -->
             <section class="card result-panel">
                 <h2>🚨 Diagnostic Verdict Node</h2>
                 
-                <!-- Initial State / Loader -->
+                <!-- Initial State / Placeholder -->
                 <div id="result-placeholder" class="placeholder-state">
                     <div class="pulse-ring"></div>
                     <p>Awaiting Telemetry Input...</p>
@@ -70,11 +113,11 @@
                     <p>Running XGBoost Prediction Classifier...</p>
                 </div>
 
-                <!-- Response output -->
+                <!-- Prediction Response Output -->
                 <div id="result-output" class="output-state hidden">
                     <div id="verdict-banner" class="verdict-banner">
                         <span id="verdict-text">RELAXED</span>
-                        <span id="confidence-badge" class="badge">99.9% Confidence</span>
+                        <span id="confidence-badge" class="badge">-- Confidence</span>
                     </div>
 
                     <div class="metrics-grid">
@@ -111,7 +154,7 @@
                         </div>
                     </div>
 
-                    <!-- Calibrated Standards -->
+                    <!-- Standardized Deviations -->
                     <div class="normalized-panel">
                         <h3>📈 Standardized Deviations (Z-Scores)</h3>
                         <div class="z-score-row">
