@@ -36,7 +36,6 @@ const outEda = document.getElementById('out-eda');
 const outTemp = document.getElementById('out-temp');
 
 const hrvSdnn = document.getElementById('hrv-sdnn');
-const hrvRmssd = document.getElementById('hrv-rmssd');
 
 const zHr = document.getElementById('z-hr');
 const zEda = document.getElementById('z-eda');
@@ -101,7 +100,6 @@ function updateResultUI(data) {
     outTemp.textContent = `${data.input_metrics.temperature.toFixed(1)} °C`;
 
     hrvSdnn.textContent = `${data.synthesized_hrv.sdnn_ms} ms`;
-    hrvRmssd.textContent = `${data.synthesized_hrv.rmssd_ms} ms`;
 
     zHr.style.width = `${mapZScoreToPercent(data.normalized_metrics.hr_normalized)}%`;
     zEda.style.width = `${mapZScoreToPercent(data.normalized_metrics.eda_normalized)}%`;
