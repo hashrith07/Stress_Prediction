@@ -12,6 +12,11 @@ tabManual.addEventListener('click', () => {
     manualForm.classList.remove('hidden');
     sensorPanel.classList.add('hidden');
     stopSensorStream(); // Ensure stream stops when switching tabs
+    
+    // Reset output to placeholder
+    output.classList.add('hidden');
+    loader.classList.add('hidden');
+    placeholder.classList.remove('hidden');
 });
 
 tabSensor.addEventListener('click', () => {
@@ -19,6 +24,11 @@ tabSensor.addEventListener('click', () => {
     tabManual.classList.remove('active');
     sensorPanel.classList.remove('hidden');
     manualForm.classList.add('hidden');
+    
+    // Reset output to placeholder
+    output.classList.add('hidden');
+    loader.classList.add('hidden');
+    placeholder.classList.remove('hidden');
 });
 
 // =========================================================================
@@ -34,8 +44,6 @@ const verdictText = document.getElementById('verdict-text');
 const outBpm = document.getElementById('out-bpm');
 const outEda = document.getElementById('out-eda');
 const outTemp = document.getElementById('out-temp');
-
-
 
 const zHr = document.getElementById('z-hr');
 const zEda = document.getElementById('z-eda');
@@ -58,6 +66,7 @@ manualForm.addEventListener('submit', async function(e) {
     placeholder.classList.add('hidden');
     output.classList.add('hidden');
     loader.classList.remove('hidden');
+    document.querySelector('#result-loading p').textContent = "Running XGBoost Prediction Classifier...";
 
     try {
         const response = await fetch(`${apiUrl.replace(/\/$/, '')}/predict`, {
@@ -98,8 +107,6 @@ function updateResultUI(data) {
     outBpm.textContent = `${data.input_metrics.bpm} BPM`;
     outEda.textContent = `${data.input_metrics.eda.toFixed(2)} μS`;
     outTemp.textContent = `${data.input_metrics.temperature.toFixed(1)} °C`;
-
-
 
     zHr.style.width = `${mapZScoreToPercent(data.normalized_metrics.hr_normalized)}%`;
     zEda.style.width = `${mapZScoreToPercent(data.normalized_metrics.eda_normalized)}%`;
@@ -175,8 +182,11 @@ function startSensorStream() {
     btnStream.className = "btn-submit btn-stream-on";
     chartsArea.classList.remove('hidden');
 
+    // Keep the right output panel hidden initially, show the connection loader
     placeholder.classList.add('hidden');
-    output.classList.remove('hidden');
+    output.classList.add('hidden');
+    loader.classList.remove('hidden');
+    document.querySelector('#result-loading p').textContent = "Establishing Wearable Node Connection...";
 
     if (!chartHr || !chartEda) {
         initCharts();
@@ -184,25 +194,25 @@ function startSensorStream() {
 
     streamTick = 0;
     
-    // Simulate subject's physiological logs (Transition: Baseline -> TSST Stress -> Amusement)
+    // Simulate subject's physiological logs
     streamInterval = setInterval(async () => {
         streamTick++;
 
         let liveBpm, liveEda, liveTemp;
 
         if (streamTick < 12) {
-            // Phase 1: Relaxed Baseline (Normal values)
+            // Phase 1: Relaxed Baseline
             liveBpm = Math.round(72 + Math.random() * 4);
             liveEda = 0.32 + Math.random() * 0.08;
             liveTemp = 34.6 - Math.random() * 0.2;
         } else if (streamTick < 28) {
-            // Phase 2: TSST Stress Task (High HR, High Sweat, Cold Temperature)
-            const stressProgress = (streamTick - 12) / 16; // 0 to 1
-            liveBpm = Math.round(76 + stressProgress * 48 + Math.random() * 6); // Rises to ~130
-            liveEda = 0.4 + stressProgress * 14.5 + Math.random() * 1.5; // Spikes to ~16.0
-            liveTemp = 34.4 - stressProgress * 3.8 - Math.random() * 0.3; // Drops to ~30.0
+            // Phase 2: TSST Stress Task
+            const stressProgress = (streamTick - 12) / 16;
+            liveBpm = Math.round(76 + stressProgress * 48 + Math.random() * 6);
+            liveEda = 0.4 + stressProgress * 14.5 + Math.random() * 1.5;
+            liveTemp = 34.4 - stressProgress * 3.8 - Math.random() * 0.3;
         } else {
-            // Phase 3: Recovery / Amusement (Values settle back down)
+            // Phase 3: Recovery / Amusement
             const recoveryProgress = (streamTick - 28) / 12;
             liveBpm = Math.round(124 - recoveryProgress * 40 + Math.random() * 5);
             liveEda = 15.0 - recoveryProgress * 12.0 + Math.random() * 0.8;
@@ -230,6 +240,11 @@ function startSensorStream() {
 
                 if (response.ok) {
                     const data = await response.json();
+                    
+                    // First packet received - transition from loader to actual output!
+                    loader.classList.add('hidden');
+                    output.classList.remove('hidden');
+                    
                     updateResultUI(data);
                 }
             } catch (err) {
@@ -242,7 +257,7 @@ function startSensorStream() {
 function updateChart(chart, newVal) {
     chart.data.datasets[0].data.shift();
     chart.data.datasets[0].data.push(newVal);
-    chart.update('none'); // Update without full animation for performance
+    chart.update('none');
 }
 
 function stopSensorStream() {
@@ -263,6 +278,7 @@ function stopSensorStream() {
     }
 
     output.classList.add('hidden');
+    loader.classList.add('hidden');
     placeholder.classList.remove('hidden');
 }
 
