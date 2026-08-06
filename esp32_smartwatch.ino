@@ -9,7 +9,7 @@ const char* ssid = "Hashrith";
 const char* password = "123456789";
 
 // Deployed API Endpoint URL
-const char* serverName = "https://stress-prediction-auws.onrender.com/predict";
+const char* serverName = "https://stress-prediction-auws.onrender.com/predict?device=iot";
 
 // -----------------------------------------------------
 // Pin Connections Configuration

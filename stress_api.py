@@ -57,7 +57,7 @@ class StressInput(BaseModel):
 # Prediction Endpoint (Saves latest incoming IoT reading)
 # -----------------------------------------------------
 @app.post("/predict")
-async def predict(data: StressInput):
+async def predict(data: StressInput, device: str = "manual"):
     global LATEST_IOT_READING
     try:
         # =====================================================================
@@ -88,8 +88,9 @@ async def predict(data: StressInput):
                     "temp_normalized": 0.0
                 }
             }
-            # Cache reading for dashboard polling
-            LATEST_IOT_READING = {**result, "timestamp": time.time()}
+            # Cache reading for dashboard polling if it's from the physical IoT device
+            if device == "iot":
+                LATEST_IOT_READING = {**result, "timestamp": time.time()}
             return result
             
         # Rule 2: Active Sweat response (EDA >= 4.0 μS) + Elevated Heart Rate (>= 90 BPM) is always STRESSED
@@ -114,8 +115,9 @@ async def predict(data: StressInput):
                     "temp_normalized": 0.0
                 }
             }
-            # Cache reading for dashboard polling
-            LATEST_IOT_READING = {**result, "timestamp": time.time()}
+            # Cache reading for dashboard polling if it's from the physical IoT device
+            if device == "iot":
+                LATEST_IOT_READING = {**result, "timestamp": time.time()}
             return result
 
         # =====================================================================
@@ -187,8 +189,9 @@ async def predict(data: StressInput):
             }
         }
         
-        # Cache reading for dashboard polling
-        LATEST_IOT_READING = {**result, "timestamp": time.time()}
+        # Cache reading for dashboard polling if it's from the physical IoT device
+        if device == "iot":
+            LATEST_IOT_READING = {**result, "timestamp": time.time()}
         return result
         
     except Exception as e:
