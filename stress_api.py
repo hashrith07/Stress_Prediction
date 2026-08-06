@@ -4,11 +4,12 @@ from pydantic import BaseModel, Field
 import joblib
 import numpy as np
 import os
+import time
 
 app = FastAPI(
     title="StressIQ Prediction API",
-    description="FastAPI service for real-time stress detection (No Accelerometer Pipeline)",
-    version="1.5.0"
+    description="FastAPI service for real-time stress detection with live IoT device pairing",
+    version="1.6.0"
 )
 
 # Enable CORS
@@ -34,13 +35,15 @@ try:
 except Exception as e:
     raise RuntimeError(f"Failed to load stress model/scaler: {str(e)}")
 
-# 20 feature columns (Completely excluded ACC)
 FEATURE_COLS = [
     'eda_mean', 'eda_std', 'eda_min', 'eda_max', 'eda_range', 'eda_slope',
     'temp_mean', 'temp_std', 'temp_min', 'temp_max', 'temp_range', 'temp_slope',
     'hr_mean', 'hr_std', 'hr_min', 'hr_max',
     'ibi_mean', 'ibi_sdnn', 'ibi_rmssd', 'ibi_pnn50'
 ]
+
+# Global state to store the latest physical IoT device reading in memory
+LATEST_IOT_READING = None
 
 # -----------------------------------------------------
 # Simplified Input Schema (Only asks for BPM, EDA, and TEMP)
@@ -51,21 +54,21 @@ class StressInput(BaseModel):
     temp: float = Field(..., description="Current Skin Temperature (°C)", ge=0.0, le=60.0)
 
 # -----------------------------------------------------
-# Prediction Endpoint
+# Prediction Endpoint (Saves latest incoming IoT reading)
 # -----------------------------------------------------
 @app.post("/predict")
 async def predict(data: StressInput):
+    global LATEST_IOT_READING
     try:
         # =====================================================================
         # CLINICAL OVERRIDE & DATA VALIDATION GUARDS
         # =====================================================================
-        # Clamp physically impossible inputs to human physiological limits
         clamped_temp = min(37.5, max(28.0, data.temp))
         clamped_bpm = min(220.0, max(40.0, data.bpm))
         
         # Rule 1: Extreme resting Heart Rate (Tachycardia >= 130 BPM) is always STRESSED
         if data.bpm >= 130.0:
-            return {
+            result = {
                 "stressed": True,
                 "verdict": "STRESSED",
                 "confidence": "100.0% (Clinical Override)",
@@ -85,10 +88,13 @@ async def predict(data: StressInput):
                     "temp_normalized": 0.0
                 }
             }
+            # Cache reading for dashboard polling
+            LATEST_IOT_READING = {**result, "timestamp": time.time()}
+            return result
             
         # Rule 2: Active Sweat response (EDA >= 4.0 μS) + Elevated Heart Rate (>= 90 BPM) is always STRESSED
         if data.eda >= 4.0 and data.bpm >= 90.0:
-            return {
+            result = {
                 "stressed": True,
                 "verdict": "STRESSED",
                 "confidence": "99.0% (Clinical Override)",
@@ -108,22 +114,22 @@ async def predict(data: StressInput):
                     "temp_normalized": 0.0
                 }
             }
+            # Cache reading for dashboard polling
+            LATEST_IOT_READING = {**result, "timestamp": time.time()}
+            return result
 
         # =====================================================================
         # STANDARD XGBOOST PIPELINE (Using Clamped Inputs)
         # =====================================================================
-        # 1. Simulate 15-second physiological window around clamped inputs with micro-noise
         np.random.seed(42)
         eda_sim = data.eda + np.random.normal(0, 0.02, 60)
         temp_sim = clamped_temp + np.random.normal(0, 0.05, 60)
         
-        # Calculate HRV intervals (IBI) matching clamped BPM
         mean_ibi = 60.0 / clamped_bpm
         hrv_ratio = 0.02 if clamped_bpm >= 85 else 0.08
         ibi_sim = mean_ibi + np.random.normal(0, mean_ibi * hrv_ratio, 15)
         hr_sim = 60.0 / ibi_sim
         
-        # Compute the 20 raw features
         raw_feats = {
             'eda_mean': np.mean(eda_sim),
             'eda_std': np.std(eda_sim),
@@ -150,20 +156,17 @@ async def predict(data: StressInput):
             'ibi_pnn50': (np.sum(np.abs(np.diff(ibi_sim)) > 0.05) / len(np.diff(ibi_sim))) * 100
         }
         
-        # 2. Package raw features in the correct order (shape = 1, 20)
         X_raw = np.zeros((1, 20))
         for idx, col in enumerate(FEATURE_COLS):
             X_raw[0, idx] = raw_feats[col]
             
-        # 3. Scale raw features using the fitted global scaler
         X_live = scaler.transform(X_raw)
         
-        # 4. Run XGBoost Prediction
         prediction = int(model.predict(X_live)[0])
         probabilities = model.predict_proba(X_live)[0]
         confidence = float(probabilities[prediction])
         
-        return {
+        result = {
             "stressed": prediction == 1,
             "verdict": "STRESSED" if prediction == 1 else "RELAXED",
             "confidence": f"{round(confidence * 100, 2)}%",
@@ -184,8 +187,34 @@ async def predict(data: StressInput):
             }
         }
         
+        # Cache reading for dashboard polling
+        LATEST_IOT_READING = {**result, "timestamp": time.time()}
+        return result
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# -----------------------------------------------------
+# Live IoT Dashboard Polling Endpoint
+# -----------------------------------------------------
+@app.get("/latest")
+async def get_latest():
+    global LATEST_IOT_READING
+    if LATEST_IOT_READING is None:
+        return {"connected": False, "message": "No active physical device stream detected."}
+        
+    # Check if the reading is fresh (received in the last 12 seconds)
+    is_fresh = (time.time() - LATEST_IOT_READING["timestamp"]) < 12.0
+    if is_fresh:
+        return {
+            "connected": True,
+            "data": LATEST_IOT_READING
+        }
+    else:
+        return {
+            "connected": False,
+            "message": "IoT device went offline (stream timed out)."
+        }
 
 # -----------------------------------------------------
 # Health Endpoint

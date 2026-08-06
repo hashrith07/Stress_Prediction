@@ -114,7 +114,7 @@ function updateResultUI(data) {
 }
 
 // =========================================================================
-// MODE B: LIVE SMARTWATCH STREAM SIMULATOR
+// MODE B: LIVE SMARTWATCH STREAM SIMULATOR (POLLS PHYSICAL DEVICE DATA)
 // =========================================================================
 const btnStream = document.getElementById('btn-stream');
 const chartsArea = document.getElementById('live-charts-area');
@@ -123,7 +123,6 @@ const subjectPicker = document.getElementById('subject-picker');
 let streamInterval = null;
 let chartHr = null;
 let chartEda = null;
-let streamTick = 0;
 
 // Initialize Chart.js Instances
 function initCharts() {
@@ -180,78 +179,58 @@ function initCharts() {
 function startSensorStream() {
     btnStream.textContent = "🔌 Disconnect Stream";
     btnStream.className = "btn-submit btn-stream-on";
-    chartsArea.classList.remove('hidden');
 
-    // Keep the right output panel hidden initially, show the connection loader
+    // Show initial loading pairing state
     placeholder.classList.add('hidden');
     output.classList.add('hidden');
     loader.classList.remove('hidden');
-    document.querySelector('#result-loading p').textContent = "Establishing Wearable Node Connection...";
+    document.querySelector('#result-loading p').textContent = "Awaiting physical IoT Wearable transmission... (Turn on ESP32 watch)";
 
     if (!chartHr || !chartEda) {
         initCharts();
     }
-
-    streamTick = 0;
     
-    // Simulate subject's physiological logs
+    // Poll the Render API server every 2 seconds for live ESP32 watch updates
+    const apiUrl = document.getElementById('api-url').value.trim();
+    const latestUrl = `${apiUrl.replace(/\/$/, '')}/latest`;
+
     streamInterval = setInterval(async () => {
-        streamTick++;
+        try {
+            const response = await fetch(latestUrl);
+            if (!response.ok) throw new Error("API call failed");
+            
+            const result = await response.json();
+            
+            if (result.connected && result.data) {
+                // Connection paired successfully!
+                loader.classList.add('hidden');
+                placeholder.classList.add('hidden');
+                output.classList.remove('hidden');
+                chartsArea.classList.remove('hidden'); // Reveal waveforms
 
-        let liveBpm, liveEda, liveTemp;
-
-        if (streamTick < 12) {
-            // Phase 1: Relaxed Baseline
-            liveBpm = Math.round(72 + Math.random() * 4);
-            liveEda = 0.32 + Math.random() * 0.08;
-            liveTemp = 34.6 - Math.random() * 0.2;
-        } else if (streamTick < 28) {
-            // Phase 2: TSST Stress Task
-            const stressProgress = (streamTick - 12) / 16;
-            liveBpm = Math.round(76 + stressProgress * 48 + Math.random() * 6);
-            liveEda = 0.4 + stressProgress * 14.5 + Math.random() * 1.5;
-            liveTemp = 34.4 - stressProgress * 3.8 - Math.random() * 0.3;
-        } else {
-            // Phase 3: Recovery / Amusement
-            const recoveryProgress = (streamTick - 28) / 12;
-            liveBpm = Math.round(124 - recoveryProgress * 40 + Math.random() * 5);
-            liveEda = 15.0 - recoveryProgress * 12.0 + Math.random() * 0.8;
-            liveTemp = 30.6 + recoveryProgress * 2.8 + Math.random() * 0.2;
-        }
-
-        // Loop the simulation
-        if (streamTick > 40) {
-            streamTick = 0;
-        }
-
-        // Update Line Charts
-        updateChart(chartHr, liveBpm);
-        updateChart(chartEda, parseFloat(liveEda.toFixed(2)));
-
-        // Run ML classification call to Render API every 2 seconds
-        if (streamTick % 2 === 0) {
-            const apiUrl = document.getElementById('api-url').value.trim();
-            try {
-                const response = await fetch(`${apiUrl.replace(/\/$/, '')}/predict`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bpm: liveBpm, eda: liveEda, temp: liveTemp })
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    // First packet received - transition from loader to actual output!
-                    loader.classList.add('hidden');
-                    output.classList.remove('hidden');
-                    
-                    updateResultUI(data);
-                }
-            } catch (err) {
-                console.warn("Stream API fetch failed:", err);
+                const payload = result.data;
+                
+                // Update Line Graphs
+                updateChart(chartHr, payload.input_metrics.bpm);
+                updateChart(chartEda, parseFloat(payload.input_metrics.eda.toFixed(2)));
+                
+                // Update diagnostic cards Z-scores and text readouts
+                updateResultUI(payload);
+            } else {
+                // Device is offline or went offline
+                output.classList.add('hidden');
+                chartsArea.classList.add('hidden'); // Hide waveforms
+                loader.classList.remove('hidden');
+                document.querySelector('#result-loading p').textContent = result.message || "Awaiting physical IoT Wearable transmission... (Turn on ESP32 watch)";
             }
+        } catch (err) {
+            console.warn("Polling latest IoT stream failed:", err);
+            output.classList.add('hidden');
+            chartsArea.classList.add('hidden');
+            loader.classList.remove('hidden');
+            document.querySelector('#result-loading p').textContent = "Connecting to Render Cloud Gateway...";
         }
-    }, 1000);
+    }, 2000);
 }
 
 function updateChart(chart, newVal) {
