@@ -79,90 +79,33 @@ def parse_quest(quest_path):
                 ends = [float(p.strip()) for p in line.strip().split(';')[1:] if p.strip() != '']
     return {o: (s, e) for o, s, e in zip(order, starts, ends)}
 
-# Universal Baseline stats (mean, std) for the 24 features
-UNIVERSAL_BASELINE_STATS = {
-    'eda_mean': (3.909722, 2.919307),
-    'eda_std': (0.015316, 0.012573),
-    'eda_min': (3.789542, 2.922315),
-    'eda_max': (4.017380, 2.919094),
-    'eda_range': (0.227837, 0.082489),
-    'eda_slope': (-0.000001, 0.000005),
-    'temp_mean': (33.455559, 1.491818),
-    'temp_std': (0.028801, 0.033269),
-    'temp_min': (33.347298, 1.500663),
-    'temp_max': (33.615633, 1.472999),
-    'temp_range': (0.268336, 0.119731),
-    'temp_slope': (0.000001, 0.000012),
-    'acc_mean': (0.934601, 0.020249),
-    'acc_std': (0.005953, 0.005378),
-    'acc_min': (0.902707, 0.040405),
-    'acc_max': (0.968663, 0.045451),
-    'hr_mean': (72.327958, 11.350163),
-    'hr_std': (4.741177, 2.540253),
-    'hr_min': (64.384158, 11.183913),
-    'hr_max': (80.992244, 12.571506),
-    'ibi_mean': (0.849399, 0.129200),
-    'ibi_sdnn': (0.057669, 0.035679),
-    'ibi_rmssd': (0.053288, 0.046113),
-    'ibi_pnn50': (27.407869, 23.155375),
-}
-
+# 20 feature columns (Completely excluded ACC)
 FEATURE_COLS = [
     'eda_mean', 'eda_std', 'eda_min', 'eda_max', 'eda_range', 'eda_slope',
     'temp_mean', 'temp_std', 'temp_min', 'temp_max', 'temp_range', 'temp_slope',
-    'acc_mean', 'acc_std', 'acc_min', 'acc_max',
     'hr_mean', 'hr_std', 'hr_min', 'hr_max',
     'ibi_mean', 'ibi_sdnn', 'ibi_rmssd', 'ibi_pnn50'
 ]
 
-# Cache baseline profiles to speed up loading
-@st.cache_data
-def get_baseline_profile(subject_dir, quest_file, e4_dir):
-    protocol = parse_quest(quest_file)
-    base_start, base_end = protocol['Base']
-    
-    # Load raw values
-    df_eda = pd.read_csv(os.path.join(e4_dir, "EDA.csv"), skiprows=2, header=None)
-    fs_eda = float(open(os.path.join(e4_dir, "EDA.csv")).readlines()[1].strip().split(',')[0])
-    
-    start_idx = int(base_start * 60 * fs_eda)
-    end_idx = int(base_end * 60 * fs_eda)
-    baseline_eda = df_eda.iloc[start_idx:end_idx].values.flatten()
-    
-    # Load temp
-    df_temp = pd.read_csv(os.path.join(e4_dir, "TEMP.csv"), skiprows=2, header=None)
-    fs_temp = float(open(os.path.join(e4_dir, "TEMP.csv")).readlines()[1].strip().split(',')[0])
-    baseline_temp = df_temp.iloc[int(base_start * 60 * fs_temp):int(base_end * 60 * fs_temp)].values.flatten()
-    baseline_temp = baseline_temp[baseline_temp < 50.0]
-    
-    # Load HR
-    df_hr = pd.read_csv(os.path.join(e4_dir, "HR.csv"), skiprows=2, header=None)
-    baseline_hr = df_hr.iloc[int(base_start * 60):int(base_end * 60)].values.flatten()
-    
-    return {
-        'eda_mean': np.mean(baseline_eda), 'eda_std': np.std(baseline_eda) if len(baseline_eda) > 1 else 0.05,
-        'temp_mean': np.mean(baseline_temp), 'temp_std': np.std(baseline_temp) if len(baseline_temp) > 1 else 0.15,
-        'hr_mean': np.mean(baseline_hr), 'hr_std': np.std(baseline_hr) if len(baseline_hr) > 1 else 4.0
-    }
-
 def main():
-    st.title("🫀 Live IoT Smartwatch Stress Tracker Demonstration")
     st.subheader("Simulated Real-Time Sensor Stream & ML Classification")
     
-    # Model Path
+    # Model & Scaler Paths
     script_dir = os.path.dirname(__file__)
     model_path = os.path.join(script_dir, "stress_model_xgb.pkl")
+    scaler_path = os.path.join(script_dir, "scaler_global.pkl")
     wesad_dir = os.path.join(script_dir, "WESAD")
     
-    if not os.path.exists(model_path):
-        st.error(f"❌ Model file `stress_model_xgb.pkl` (97.84% accurate XGBoost) not found in {script_dir}.")
+    if not os.path.exists(model_path) or not os.path.exists(scaler_path):
+        st.error(f"❌ Model or Scaler not found in {script_dir}.")
         return
     if not os.path.exists(wesad_dir):
         st.error(f"❌ WESAD Dataset directory not found at {wesad_dir}.")
         return
         
-    # Load Model directly
+    # Load Model & Scaler directly
     model = joblib.load(model_path)
+    scaler = joblib.load(scaler_path)
         
     # Subject selector
     subjects = sorted([os.path.basename(d) for d in glob.glob(os.path.join(wesad_dir, "S*")) if os.path.isdir(d)])
@@ -176,11 +119,7 @@ def main():
     quest_file = os.path.join(subj_dir, f"{selected_subject}_quest.csv")
     e4_dir = glob.glob(os.path.join(subj_dir, "*_E4*"))[0]
     
-    # Load baseline profile
-    with st.spinner("Calibrating user baseline profile..."):
-        baseline_profile = get_baseline_profile(subj_dir, quest_file, e4_dir)
-        
-    st.sidebar.success("✅ Device Calibrated to User Profile!")
+    st.sidebar.success("✅ Device Initialized and Connected!")
     
     # Real-time dashboard layout
     col1, col2 = st.columns([2, 1])
@@ -287,36 +226,40 @@ def main():
                 ibi_rmssd = np.sqrt(np.mean(diff_ibi ** 2))
                 ibi_pnn50 = (np.sum(np.abs(diff_ibi) > 0.05) / len(diff_ibi)) * 100
                 
-                # Perform Baseline Normalization using Calibrated profile
-                eda_mean_n = (eda_mean - baseline_profile['eda_mean']) / (baseline_profile['eda_std'] + 1e-6)
-                eda_std_n = eda_std / (baseline_profile['eda_std'] + 1e-6)
-                temp_mean_n = (temp_mean - baseline_profile['temp_mean']) / (baseline_profile['temp_std'] + 1e-6)
-                temp_std_n = temp_std / (baseline_profile['temp_std'] + 1e-6)
-                hr_mean_n = (hr_mean - baseline_profile['hr_mean']) / (baseline_profile['hr_std'] + 1e-6)
-                hr_std_n = hr_std / (baseline_profile['hr_std'] + 1e-6)
+                # Create raw features mapping
+                raw_feats = {
+                    'eda_mean': eda_mean,
+                    'eda_std': eda_std,
+                    'eda_min': eda_min,
+                    'eda_max': eda_max,
+                    'eda_range': eda_max - eda_min,
+                    'eda_slope': 0.0,
+                    
+                    'temp_mean': temp_mean,
+                    'temp_std': temp_std,
+                    'temp_min': temp_min,
+                    'temp_max': temp_max,
+                    'temp_range': temp_max - temp_min,
+                    'temp_slope': 0.0,
+                    
+                    'hr_mean': hr_mean,
+                    'hr_std': hr_std,
+                    'hr_min': hr_min,
+                    'hr_max': hr_max,
+                    
+                    'ibi_mean': ibi_mean,
+                    'ibi_sdnn': ibi_sdnn,
+                    'ibi_rmssd': ibi_rmssd,
+                    'ibi_pnn50': ibi_pnn50
+                }
                 
-                # Map computed features to correct indexes of our 24 feature array
-                X_live = np.zeros((1, 24))
+                # Package raw features in correct order
+                X_raw = np.zeros((1, 20))
                 for idx, col in enumerate(FEATURE_COLS):
-                    mean, std = UNIVERSAL_BASELINE_STATS[col]
-                    if col == 'eda_mean': X_live[0, idx] = eda_mean_n
-                    elif col == 'eda_std': X_live[0, idx] = eda_std_n
-                    elif col == 'eda_min': X_live[0, idx] = (eda_min - baseline_profile['eda_mean']) / baseline_profile['eda_std']
-                    elif col == 'eda_max': X_live[0, idx] = (eda_max - baseline_profile['eda_mean']) / baseline_profile['eda_std']
-                    elif col == 'temp_mean': X_live[0, idx] = temp_mean_n
-                    elif col == 'temp_std': X_live[0, idx] = temp_std_n
-                    elif col == 'temp_min': X_live[0, idx] = (temp_min - baseline_profile['temp_mean']) / baseline_profile['temp_std']
-                    elif col == 'temp_max': X_live[0, idx] = (temp_max - baseline_profile['temp_mean']) / baseline_profile['temp_std']
-                    elif col == 'hr_mean': X_live[0, idx] = hr_mean_n
-                    elif col == 'hr_std': X_live[0, idx] = hr_std_n
-                    elif col == 'hr_min': X_live[0, idx] = (hr_min - baseline_profile['hr_mean']) / baseline_profile['hr_std']
-                    elif col == 'hr_max': X_live[0, idx] = (hr_max - baseline_profile['hr_mean']) / baseline_profile['hr_std']
-                    elif col == 'ibi_mean': X_live[0, idx] = ibi_mean
-                    elif col == 'ibi_sdnn': X_live[0, idx] = ibi_sdnn
-                    elif col == 'ibi_rmssd': X_live[0, idx] = ibi_rmssd
-                    elif col == 'ibi_pnn50': X_live[0, idx] = ibi_pnn50
-                    else:
-                        X_live[0, idx] = (0.95 - mean) / std # default ACC/slopes normalized
+                    X_raw[0, idx] = raw_feats[col]
+                    
+                # Scale raw features using the fitted global scaler
+                X_live = scaler.transform(X_raw)
                 
                 # Predict Stress
                 prediction = model.predict(X_live)[0]
@@ -334,40 +277,41 @@ def main():
                         🟢 SYSTEM: RELAXED
                     </div>
                     """, unsafe_allow_html=True)
-                    
-                # Update metrics
+                
+                # Render parameters
                 metrics_placeholder.markdown(f"""
                 <div class='metric-card'>
-                    <h4>Wearer Target State:</h4>
-                    <p style="font-size: 20px; font-weight: bold; color: #60a5fa;">{ground_truth}</p>
-                    <hr style="border: 0.5px solid rgba(255,255,255,0.1);">
-                    <div style="display: flex; justify-content: space-around;">
+                    <h4>📊 Telemetry Readouts</h4>
+                    <p style='font-size: 15px; color: #94a3b8; margin-top: 5px;'>Ground Truth context: <b>{ground_truth}</b></p>
+                    <div style='display: flex; justify-content: space-around; margin-top: 15px;'>
                         <div>
-                            <h5>Heart Rate</h5>
-                            <p style="font-size: 24px; color: #f43f5e; font-weight: bold;">{int(hr_curr)} BPM</p>
+                            <h5>💓 Heart Rate</h5>
+                            <p style='font-size: 24px; font-weight: bold; color: #ef4444;'>{hr_curr:.0f} BPM</p>
                         </div>
                         <div>
-                            <h5>Sweat Level</h5>
-                            <p style="font-size: 24px; color: #10b981; font-weight: bold;">{eda_curr:.3f} μS</p>
+                            <h5>💧 EDA / Sweat</h5>
+                            <p style='font-size: 24px; font-weight: bold; color: #10b981;'>{eda_curr:.2f} μS</p>
                         </div>
                         <div>
-                            <h5>Skin Temp</h5>
-                            <p style="font-size: 24px; color: #3b82f6; font-weight: bold;">{temp_curr:.2f} °C</p>
+                            <h5>🌡️ Temp</h5>
+                            <p style='font-size: 24px; font-weight: bold; color: #3b82f6;'>{temp_curr:.1f} °C</p>
                         </div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-                
-            # Render sliding line charts
+            
+            # Maintain scrolling graph history (last 100 samples)
             eda_history.append(eda_curr)
             hr_history.append(hr_curr)
-            if len(eda_history) > 60:
+            if len(eda_history) > 100:
                 eda_history.pop(0)
                 hr_history.pop(0)
                 
-            eda_chart_placeholder.line_chart(pd.DataFrame({'EDA (Sweat level)': eda_history}), height=170)
-            hr_chart_placeholder.line_chart(pd.DataFrame({'Heart Rate (BPM)': hr_history}), height=170)
+            # Plot charts
+            eda_chart_placeholder.line_chart(pd.DataFrame(eda_history, columns=["💧 Sweat Level / EDA (μS)"]))
+            hr_chart_placeholder.line_chart(pd.DataFrame(hr_history, columns=["💓 Heart Rate (BPM)"]))
             
+            # Speed control delay
             time.sleep(step_delay)
 
 if __name__ == "__main__":

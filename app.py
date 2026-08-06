@@ -133,7 +133,6 @@ UNIVERSAL_BASELINE_STATS = {
 FEATURE_COLS = [
     'eda_mean', 'eda_std', 'eda_min', 'eda_max', 'eda_range', 'eda_slope',
     'temp_mean', 'temp_std', 'temp_min', 'temp_max', 'temp_range', 'temp_slope',
-    'acc_mean', 'acc_std', 'acc_min', 'acc_max',
     'hr_mean', 'hr_std', 'hr_min', 'hr_max',
     'ibi_mean', 'ibi_sdnn', 'ibi_rmssd', 'ibi_pnn50'
 ]
@@ -248,7 +247,7 @@ def run_session_analysis(e4_dir, protocol, model):
     # 3. Standardize and Predict
     predictions = []
     for idx, row in session_raw_df.iterrows():
-        X_live = np.zeros((1, 24))
+        X_live = np.zeros((1, 20))
         for i, col in enumerate(FEATURE_COLS):
             mean = baseline_means[col]
             std = baseline_stds[col]
@@ -306,7 +305,6 @@ def main():
             np.random.seed(42)
             eda_sim = input_eda + np.random.normal(0, 0.02, 60)
             temp_sim = input_temp + np.random.normal(0, 0.05, 60)
-            acc_sim = 0.95 + np.random.normal(0, 0.01, 60)
             
             mean_ibi = 60.0 / input_hr
             hrv_ratio = 0.02 if input_hr >= 85 else 0.08
@@ -328,11 +326,6 @@ def main():
                 'temp_range': np.max(temp_sim) - np.min(temp_sim),
                 'temp_slope': 0.0,
                 
-                'acc_mean': np.mean(acc_sim),
-                'acc_std': np.std(acc_sim),
-                'acc_min': np.min(acc_sim),
-                'acc_max': np.max(acc_sim),
-                
                 'hr_mean': np.mean(hr_sim),
                 'hr_std': np.std(hr_sim),
                 'hr_min': np.min(hr_sim),
@@ -345,7 +338,7 @@ def main():
             }
             
             # Package raw features in correct order
-            X_raw = np.zeros((1, 24))
+            X_raw = np.zeros((1, 20))
             for idx, col in enumerate(FEATURE_COLS):
                 X_raw[0, idx] = raw_feats[col]
                 

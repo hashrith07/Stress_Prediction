@@ -7,8 +7,8 @@ import os
 
 app = FastAPI(
     title="StressIQ Prediction API",
-    description="FastAPI service for real-time stress detection with physiological safety guards",
-    version="1.4.0"
+    description="FastAPI service for real-time stress detection (No Accelerometer Pipeline)",
+    version="1.5.0"
 )
 
 # Enable CORS
@@ -34,10 +34,10 @@ try:
 except Exception as e:
     raise RuntimeError(f"Failed to load stress model/scaler: {str(e)}")
 
+# 20 feature columns (Completely excluded ACC)
 FEATURE_COLS = [
     'eda_mean', 'eda_std', 'eda_min', 'eda_max', 'eda_range', 'eda_slope',
     'temp_mean', 'temp_std', 'temp_min', 'temp_max', 'temp_range', 'temp_slope',
-    'acc_mean', 'acc_std', 'acc_min', 'acc_max',
     'hr_mean', 'hr_std', 'hr_min', 'hr_max',
     'ibi_mean', 'ibi_sdnn', 'ibi_rmssd', 'ibi_pnn50'
 ]
@@ -60,7 +60,6 @@ async def predict(data: StressInput):
         # CLINICAL OVERRIDE & DATA VALIDATION GUARDS
         # =====================================================================
         # Clamp physically impossible inputs to human physiological limits
-        # (e.g. Skin temp cannot be 47°C for a living wearer; max human skin temp is ~37.5°C)
         clamped_temp = min(37.5, max(28.0, data.temp))
         clamped_bpm = min(220.0, max(40.0, data.bpm))
         
@@ -117,7 +116,6 @@ async def predict(data: StressInput):
         np.random.seed(42)
         eda_sim = data.eda + np.random.normal(0, 0.02, 60)
         temp_sim = clamped_temp + np.random.normal(0, 0.05, 60)
-        acc_sim = 0.95 + np.random.normal(0, 0.01, 60)
         
         # Calculate HRV intervals (IBI) matching clamped BPM
         mean_ibi = 60.0 / clamped_bpm
@@ -125,7 +123,7 @@ async def predict(data: StressInput):
         ibi_sim = mean_ibi + np.random.normal(0, mean_ibi * hrv_ratio, 15)
         hr_sim = 60.0 / ibi_sim
         
-        # Compute the 24 raw features
+        # Compute the 20 raw features
         raw_feats = {
             'eda_mean': np.mean(eda_sim),
             'eda_std': np.std(eda_sim),
@@ -141,11 +139,6 @@ async def predict(data: StressInput):
             'temp_range': np.max(temp_sim) - np.min(temp_sim),
             'temp_slope': 0.0,
             
-            'acc_mean': np.mean(acc_sim),
-            'acc_std': np.std(acc_sim),
-            'acc_min': np.min(acc_sim),
-            'acc_max': np.max(acc_sim),
-            
             'hr_mean': np.mean(hr_sim),
             'hr_std': np.std(hr_sim),
             'hr_min': np.min(hr_sim),
@@ -157,8 +150,8 @@ async def predict(data: StressInput):
             'ibi_pnn50': (np.sum(np.abs(np.diff(ibi_sim)) > 0.05) / len(np.diff(ibi_sim))) * 100
         }
         
-        # 2. Package raw features in the correct order
-        X_raw = np.zeros((1, 24))
+        # 2. Package raw features in the correct order (shape = 1, 20)
+        X_raw = np.zeros((1, 20))
         for idx, col in enumerate(FEATURE_COLS):
             X_raw[0, idx] = raw_feats[col]
             
@@ -202,5 +195,5 @@ async def health():
     return {
         "status": "healthy",
         "model_loaded": model is not None and scaler is not None,
-        "model_type": "Globally Standardized XGBoost Classifier with Safety Guards"
+        "model_type": "Globally Standardized 3-Sensor XGBoost Pipeline (No ACC)"
     }

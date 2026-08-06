@@ -5,8 +5,8 @@
 // -----------------------------------------------------
 // Wi-Fi Configuration
 // -----------------------------------------------------
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
+const char* ssid = "Hashrith";
+const char* password = "123456789";
 
 // Deployed API Endpoint URL
 const char* serverName = "https://stress-prediction-auws.onrender.com/predict";
