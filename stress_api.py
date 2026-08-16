@@ -24,7 +24,7 @@ app.add_middleware(
 # -----------------------------------------------------
 # Load XGBoost Model & Global StandardScaler
 # -----------------------------------------------------
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "stress_model_xgb.pkl")
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "stress_model_mlp.pkl")
 SCALER_PATH = os.path.join(os.path.dirname(__file__), "scaler_global.pkl")
 
 try:

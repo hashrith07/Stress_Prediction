@@ -92,7 +92,7 @@ def main():
     
     # Model & Scaler Paths
     script_dir = os.path.dirname(__file__)
-    model_path = os.path.join(script_dir, "stress_model_xgb.pkl")
+    model_path = os.path.join(script_dir, "stress_model_mlp.pkl")
     scaler_path = os.path.join(script_dir, "scaler_global.pkl")
     wesad_dir = os.path.join(script_dir, "WESAD")
     
