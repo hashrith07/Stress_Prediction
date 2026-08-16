@@ -22,7 +22,7 @@ app.add_middleware(
 )
 
 # -----------------------------------------------------
-# Load XGBoost Model & Global StandardScaler
+# Load MLP (ANN) Model & Global StandardScaler
 # -----------------------------------------------------
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "stress_model_mlp.pkl")
 SCALER_PATH = os.path.join(os.path.dirname(__file__), "scaler_global.pkl")
@@ -227,5 +227,5 @@ async def health():
     return {
         "status": "healthy",
         "model_loaded": model is not None and scaler is not None,
-        "model_type": "Globally Standardized 3-Sensor XGBoost Pipeline (No ACC)"
+        "model_type": "Globally Standardized 3-Sensor MLP (ANN) Pipeline (No ACC)"
     }

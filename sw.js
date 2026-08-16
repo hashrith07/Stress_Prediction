@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stressiq-pwa-v1';
+const CACHE_NAME = 'stressiq-pwa-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

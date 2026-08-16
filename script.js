@@ -77,7 +77,7 @@ manualForm.addEventListener('submit', async function(e) {
     placeholder.classList.add('hidden');
     output.classList.add('hidden');
     loader.classList.remove('hidden');
-    document.querySelector('#result-loading p').textContent = "Running XGBoost Prediction Classifier...";
+    document.querySelector('#result-loading p').textContent = "Running MLP (ANN) Prediction Classifier...";
 
     try {
         const response = await fetch(`${apiUrl.replace(/\/$/, '')}/predict`, {
