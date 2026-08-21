@@ -1,14 +1,15 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <ArduinoJson.h>      // Install via Arduino IDE Library Manager
-#include <OneWire.h>          // Install via Arduino IDE Library Manager
-#include <DallasTemperature.h> // Install via Arduino IDE Library Manager
+#include <WiFiClientSecure.h>
+#include <ArduinoJson.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 // -----------------------------------------------------
 // Wi-Fi Configuration
 // -----------------------------------------------------
-const char* ssid = "Hashrith";
-const char* password = "123456789";
+const char* ssid = "Excell N1 201/202";
+const char* password = "excell@n1";
 
 // Deployed API Endpoint URL
 const char* serverName = "https://stress-prediction-auws.onrender.com/predict?device=iot";
@@ -17,19 +18,17 @@ const char* serverName = "https://stress-prediction-auws.onrender.com/predict?de
 // Pin Connections Configuration
 // -----------------------------------------------------
 const int GSR_PIN = 34;   // Analog Pin for GSR/Sweat Sensor
-const int TEMP_PIN = 35;  // Digital Pin for DS18B20 Temp Sensor
-const int PULSE_PIN = 36; // Analog Pin for Robodo Pulse Sensor
+const int TEMP_PIN = 25;  // Digital Pin for DS18B20 Temp Sensor
+const int PULSE_PIN = 36; // Analog Pin for Robodo Pulse Sensor (VP)
 
-// Setup a oneWire instance to communicate with any OneWire devices
 OneWire oneWire(TEMP_PIN);
-
-// Pass our oneWire reference to Dallas Temperature
 DallasTemperature sensors(&oneWire);
 
 void setup() {
   Serial.begin(115200);
   
-  // Initialize digital temperature sensor
+  // Enable internal software pull-up for the Temperature pin
+  pinMode(TEMP_PIN, INPUT_PULLUP);
   sensors.begin();
 
   // Connect to Wi-Fi
@@ -45,9 +44,11 @@ void setup() {
 void loop() {
   // Check Wi-Fi connection status
   if (WiFi.status() == WL_CONNECTED) {
+    WiFiClientSecure client;
+    client.setInsecure(); // Bypass SSL certificate validation
     HTTPClient http;
 
-    // 1. Read Raw Sensors
+    // 1. Read Raw Physical Sensors
     int rawGSR = analogRead(GSR_PIN);
     int rawPulse = analogRead(PULSE_PIN);
     
@@ -55,16 +56,16 @@ void loop() {
     sensors.requestTemperatures(); 
     float temp = sensors.getTempCByIndex(0); // Read skin temperature in °C
 
-    // 2. Convert Raw GSR to Physiological Metrics (Electrodermal Activity in microSiemens)
+    // Convert Raw GSR to Physiological Metrics (Electrodermal Activity in microSiemens)
     float eda = (float)rawGSR * (3.3 / 4095.0) * 2.0; 
     
-    // 3. Simple Heart Rate calculation based on pulse signal peaks
+    // Calculate Heart Rate based on pulse signal peaks
     float bpm = 75.0; 
     if (rawPulse > 2000) {
       bpm = 95.0; // Rises on pulse detection
     }
 
-    // 4. Package metrics into JSON payload
+    // 2. Package metrics into JSON payload
     StaticJsonDocument<200> doc;
     doc["bpm"] = bpm;
     doc["eda"] = eda;
@@ -73,8 +74,8 @@ void loop() {
     String requestBody;
     serializeJson(doc, requestBody);
 
-    // 5. Send HTTP POST request to the cloud server
-    http.begin(serverName);
+    // 3. Send HTTP POST request to the cloud server
+    http.begin(client, serverName);
     http.addHeader("Content-Type", "application/json");
 
     Serial.print("Sending sensor payload: ");
@@ -86,7 +87,6 @@ void loop() {
       String response = http.getString();
       Serial.print("Server Response Code: ");
       Serial.println(httpResponseCode);
-      Serial.println("Response Payload: " + response);
     } else {
       Serial.print("Error sending POST request: ");
       Serial.println(httpResponseCode);
