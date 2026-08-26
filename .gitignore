@@ -1,20 +1,11 @@
-# Ignore virtual environments
-venv/
-.venv/
-env/
-
-# Ignore large datasets
-wesad_100percent.csv
-WESAD/
-
-# Ignore python caches and temp files
+resume.docx
+resume_backup.docx
+resume_backup_2.docx
+*.docx
+*.zip
+*.jpeg
+*.png
+.streamlit/
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.ipynb_checkpoints/
-scratch/
-
-# Ignore system files
-.DS_Store
-Thumbs.db
+venv/
+node_modules/
