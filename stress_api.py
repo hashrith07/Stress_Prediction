@@ -5,6 +5,7 @@ import joblib
 import numpy as np
 import os
 import time
+import requests
 
 app = FastAPI(
     title="StressIQ Prediction API",
@@ -229,3 +230,37 @@ async def health():
         "model_loaded": model is not None and scaler is not None,
         "model_type": "Globally Standardized 3-Sensor MLP (ANN) Pipeline (No ACC)"
     }
+
+# -----------------------------------------------------
+# AI Distress Chatbot Endpoint
+# -----------------------------------------------------
+class ChatInput(BaseModel):
+    message: str
+
+HF_API_URL = "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill"
+
+@app.post("/chatbot")
+async def chatbot(data: ChatInput):
+    payload = {
+        "inputs": {
+            "text": data.message
+        }
+    }
+    try:
+        # Call Hugging Face Serverless API (Free tier, no key required for low volume)
+        response = requests.post(HF_API_URL, json=payload, timeout=8)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if isinstance(result, list) and len(result) > 0 and 'generated_text' in result[0]:
+                bot_response = result[0]['generated_text']
+            elif isinstance(result, dict) and 'generated_text' in result:
+                bot_response = result['generated_text']
+            else:
+                bot_response = "I am here for you. Please tell me more about how you are feeling."
+        else:
+            bot_response = "I hear you. Take a slow, deep breath. I am listening if you want to share more."
+            
+        return {"response": bot_response}
+    except Exception as e:
+        return {"response": "I'm here to support you. Let's take a slow, deep breath together."}

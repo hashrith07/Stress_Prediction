@@ -280,3 +280,78 @@ btnStream.addEventListener('click', () => {
         startSensorStream();
     }
 });
+
+// ============================================================
+// AI STRESS COMPANION - CLIENT SIDE SCRIPTING
+// ============================================================
+const chatBtn = document.getElementById('chat-btn');
+const chatWidget = document.getElementById('chat-widget');
+const closeChat = document.getElementById('close-chat');
+const sendChat = document.getElementById('send-chat');
+const chatInput = document.getElementById('chat-input');
+const chatBody = document.getElementById('chat-body');
+
+// Toggle chat window open/closed
+chatBtn.addEventListener('click', () => {
+    chatWidget.classList.toggle('active');
+    if (chatWidget.classList.contains('active')) {
+        chatInput.focus();
+    }
+});
+
+closeChat.addEventListener('click', () => {
+    chatWidget.classList.remove('active');
+});
+
+// Send message triggers
+sendChat.addEventListener('click', sendMessage);
+chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        sendMessage();
+    }
+});
+
+async function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+
+    // Display user message in UI
+    appendMessage(text, 'user');
+    chatInput.value = '';
+
+    // Show typing placeholder
+    const typingIndicator = appendMessage('Typing...', 'bot');
+
+    // Retrieve the base API URL dynamically from the config input field
+    const apiUrl = document.getElementById('api-url').value.trim();
+    const chatbotUrl = `${apiUrl.replace(/\/$/, '')}/chatbot`;
+
+    try {
+        const response = await fetch(chatbotUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text })
+        });
+        
+        if (!response.ok) throw new Error("Network error");
+        
+        const data = await response.json();
+        
+        // Remove typing indicator and show real response
+        typingIndicator.remove();
+        appendMessage(data.response, 'bot');
+    } catch (err) {
+        console.error("Chatbot failed:", err);
+        typingIndicator.remove();
+        appendMessage("I'm having a connection issue, but remember to stay calm and take deep breaths.", 'bot');
+    }
+}
+
+function appendMessage(text, sender) {
+    const msg = document.createElement('div');
+    msg.className = `message ${sender}`;
+    msg.innerText = text;
+    chatBody.appendChild(msg);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    return msg;
+}
