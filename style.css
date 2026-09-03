@@ -105,32 +105,89 @@ h2 {
     padding-bottom: 8px;
 }
 
-/* Tab Headers */
-.tab-container {
+.panel-header {
     display: flex;
-    background: rgba(15, 23, 42, 0.5);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 5px;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1.5px solid var(--border-color);
+    padding-bottom: 8px;
     margin-bottom: 20px;
 }
 
-.tab-btn {
-    flex: 1;
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    padding: 10px;
-    font-family: inherit;
-    font-weight: 600;
-    cursor: pointer;
-    border-radius: 6px;
-    transition: background 0.3s, color 0.3s;
+.panel-header h2 {
+    margin-bottom: 0;
+    border-bottom: none;
+    padding-bottom: 0;
 }
 
-.tab-btn.active {
-    background: var(--accent-blue);
-    color: white;
+/* Connection Status Badge */
+.badge-status {
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+    transition: all 0.3s ease;
+}
+
+.badge-status.disconnected {
+    background: rgba(148, 163, 184, 0.12);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.badge-status.waiting {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    animation: alert-pulse-g 2s infinite;
+}
+
+.badge-status.connected {
+    background: rgba(16, 185, 129, 0.18);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+
+/* Hardware Info Specs Box */
+.hardware-info-box {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 12px;
+}
+
+@media (max-width: 600px) {
+    .hardware-info-box {
+        grid-template-columns: 1fr;
+    }
+}
+
+.hw-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.hw-icon {
+    font-size: 1.25rem;
+}
+
+.hw-item strong {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-primary);
+}
+
+.hw-item small {
+    display: block;
+    font-size: 0.68rem;
+    color: var(--text-secondary);
 }
 
 /* Form Groups & Selector */

@@ -10,44 +10,12 @@ if ('serviceWorker' in navigator) {
 }
 
 // =========================================================================
-// TAB NAVIGATION CONTROL
-// =========================================================================
-const tabManual = document.getElementById('tab-manual');
-const tabSensor = document.getElementById('tab-sensor');
-const manualForm = document.getElementById('stress-form');
-const sensorPanel = document.getElementById('sensor-stream-panel');
-
-tabManual.addEventListener('click', () => {
-    tabManual.classList.add('active');
-    tabSensor.classList.remove('active');
-    manualForm.classList.remove('hidden');
-    sensorPanel.classList.add('hidden');
-    stopSensorStream(); // Ensure stream stops when switching tabs
-    
-    // Reset output to placeholder
-    output.classList.add('hidden');
-    loader.classList.add('hidden');
-    placeholder.classList.remove('hidden');
-});
-
-tabSensor.addEventListener('click', () => {
-    tabSensor.classList.add('active');
-    tabManual.classList.remove('active');
-    sensorPanel.classList.remove('hidden');
-    manualForm.classList.add('hidden');
-    
-    // Reset output to placeholder
-    output.classList.add('hidden');
-    loader.classList.add('hidden');
-    placeholder.classList.remove('hidden');
-});
-
-// =========================================================================
-// DOM ELEMENTS FOR OUTPUTS
+// DOM ELEMENTS FOR OUTPUTS & CONNECTION
 // =========================================================================
 const placeholder = document.getElementById('result-placeholder');
 const loader = document.getElementById('result-loading');
 const output = document.getElementById('result-output');
+const connectionBadge = document.getElementById('connection-badge');
 
 const verdictBanner = document.getElementById('verdict-banner');
 const verdictText = document.getElementById('verdict-text');
@@ -61,50 +29,6 @@ const zEda = document.getElementById('z-eda');
 const zTemp = document.getElementById('z-temp');
 
 const mapZScoreToPercent = (z) => Math.min(100, Math.max(0, ((z + 3) / 6) * 100));
-
-// =========================================================================
-// MODE A: MANUAL DIAGNOSTICS SUBMISSION
-// =========================================================================
-manualForm.addEventListener('submit', async function(e) {
-    e.preventDefault();
-
-    const bpm = parseFloat(document.getElementById('bpm').value);
-    const eda = parseFloat(document.getElementById('eda').value);
-    const temp = parseFloat(document.getElementById('temp').value);
-    const apiUrl = document.getElementById('api-url').value.trim();
-    
-    // Switch to Loading State
-    placeholder.classList.add('hidden');
-    output.classList.add('hidden');
-    loader.classList.remove('hidden');
-    document.querySelector('#result-loading p').textContent = "Running MLP (ANN) Prediction Classifier...";
-
-    try {
-        const response = await fetch(`${apiUrl.replace(/\/$/, '')}/predict`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bpm, eda, temp })
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        // Render Verdict Output
-        loader.classList.add('hidden');
-        output.classList.remove('hidden');
-
-        updateResultUI(data);
-
-    } catch (error) {
-        console.error('Diagnostic error:', error);
-        alert(`❌ Diagnostic Failed:\n${error.message}`);
-        loader.classList.add('hidden');
-        placeholder.classList.remove('hidden');
-    }
-});
 
 function updateResultUI(data) {
     verdictText.textContent = data.verdict;
@@ -125,11 +49,10 @@ function updateResultUI(data) {
 }
 
 // =========================================================================
-// MODE B: LIVE SMARTWATCH STREAM SIMULATOR (POLLS PHYSICAL DEVICE DATA)
+// REAL-TIME WEARABLE IOT SENSOR STREAM
 // =========================================================================
 const btnStream = document.getElementById('btn-stream');
 const chartsArea = document.getElementById('live-charts-area');
-const subjectPicker = document.getElementById('subject-picker');
 
 let streamInterval = null;
 let chartHr = null;
@@ -137,8 +60,12 @@ let chartEda = null;
 
 // Initialize Chart.js Instances
 function initCharts() {
-    const ctxHr = document.getElementById('chart-hr').getContext('2d');
-    const ctxEda = document.getElementById('chart-eda').getContext('2d');
+    const canvasHr = document.getElementById('chart-hr');
+    const canvasEda = document.getElementById('chart-eda');
+    if (!canvasHr || !canvasEda) return;
+
+    const ctxHr = canvasHr.getContext('2d');
+    const ctxEda = canvasEda.getContext('2d');
 
     const chartOptions = {
         responsive: true,
@@ -191,6 +118,11 @@ function startSensorStream() {
     btnStream.textContent = "🔌 Disconnect Stream";
     btnStream.className = "btn-submit btn-stream-on";
 
+    if (connectionBadge) {
+        connectionBadge.className = "badge-status waiting";
+        connectionBadge.textContent = "🟡 Connecting...";
+    }
+
     // Show initial loading pairing state
     placeholder.classList.add('hidden');
     output.classList.add('hidden');
@@ -217,7 +149,11 @@ function startSensorStream() {
                 loader.classList.add('hidden');
                 placeholder.classList.add('hidden');
                 output.classList.remove('hidden');
-                chartsArea.classList.remove('hidden'); // Reveal waveforms
+
+                if (connectionBadge) {
+                    connectionBadge.className = "badge-status connected";
+                    connectionBadge.textContent = "🟢 Live IoT Stream Active";
+                }
 
                 const payload = result.data;
                 
@@ -230,21 +166,32 @@ function startSensorStream() {
             } else {
                 // Device is offline or went offline
                 output.classList.add('hidden');
-                chartsArea.classList.add('hidden'); // Hide waveforms
                 loader.classList.remove('hidden');
+
+                if (connectionBadge) {
+                    connectionBadge.className = "badge-status waiting";
+                    connectionBadge.textContent = "🟡 Awaiting Transmission";
+                }
+
                 document.querySelector('#result-loading p').textContent = result.message || "Awaiting physical IoT Wearable transmission... (Turn on ESP32 watch)";
             }
         } catch (err) {
             console.warn("Polling latest IoT stream failed:", err);
             output.classList.add('hidden');
-            chartsArea.classList.add('hidden');
             loader.classList.remove('hidden');
+
+            if (connectionBadge) {
+                connectionBadge.className = "badge-status waiting";
+                connectionBadge.textContent = "🟡 Connecting Gateway...";
+            }
+
             document.querySelector('#result-loading p').textContent = "Connecting to Render Cloud Gateway...";
         }
     }, 2000);
 }
 
 function updateChart(chart, newVal) {
+    if (!chart) return;
     chart.data.datasets[0].data.shift();
     chart.data.datasets[0].data.push(newVal);
     chart.update('none');
@@ -257,8 +204,12 @@ function stopSensorStream() {
     }
     btnStream.textContent = "🔌 Connect Wearable Stream";
     btnStream.className = "btn-submit btn-stream-off";
-    chartsArea.classList.add('hidden');
     
+    if (connectionBadge) {
+        connectionBadge.className = "badge-status disconnected";
+        connectionBadge.textContent = "Disconnected";
+    }
+
     // Clear charts data
     if (chartHr && chartEda) {
         chartHr.data.datasets[0].data.fill(null);
@@ -279,6 +230,11 @@ btnStream.addEventListener('click', () => {
     } else {
         startSensorStream();
     }
+});
+
+// Initialize empty chart display on load so waveforms are ready
+window.addEventListener('DOMContentLoaded', () => {
+    initCharts();
 });
 
 // ============================================================
