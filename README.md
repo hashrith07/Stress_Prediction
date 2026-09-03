@@ -27,8 +27,7 @@ The system features a hardware wearable layer (ESP32) that broadcasts biometrics
           │
           ▼ (Real-time Pairing /latest Endpoint)
 [ Frontend Console: Vercel ]
-  ├── 🎛️ Manual Diagnostics Calculator
-  └── 📡 Live IoT Wearable Stream (Chart.js Waves)
+  └── 📡 Live IoT Wearable Stream (Real-Time Chart.js Waveforms)
 ```
 
 ---
