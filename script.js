@@ -133,8 +133,17 @@ function startSensorStream() {
         initCharts();
     }
     
-    // Poll the Render API server every 2 seconds for live ESP32 watch updates
-    const apiUrl = document.getElementById('api-url').value.trim();
+    function getEffectiveApiUrl() {
+        const configInput = document.getElementById('api-url');
+        const configuredUrl = configInput ? configInput.value.trim() : '';
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') {
+            return 'http://localhost:8000';
+        }
+        return configuredUrl || 'https://stress-prediction-auws.onrender.com';
+    }
+
+    // Poll the API server every 2 seconds for live ESP32 watch updates
+    const apiUrl = getEffectiveApiUrl();
     const latestUrl = `${apiUrl.replace(/\/$/, '')}/latest`;
 
     streamInterval = setInterval(async () => {
@@ -278,8 +287,8 @@ async function sendMessage() {
     // Show typing placeholder
     const typingIndicator = appendMessage('Typing...', 'bot');
 
-    // Retrieve the base API URL dynamically from the config input field
-    const apiUrl = document.getElementById('api-url').value.trim();
+    // Retrieve the base API URL dynamically (supports local vs cloud)
+    const apiUrl = getEffectiveApiUrl();
     const chatbotUrl = `${apiUrl.replace(/\/$/, '')}/chatbot`;
 
     try {

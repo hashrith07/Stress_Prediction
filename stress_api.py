@@ -264,3 +264,8 @@ async def chatbot(data: ChatInput):
         return {"response": bot_response}
     except Exception as e:
         return {"response": "I'm here to support you. Let's take a slow, deep breath together."}
+
+if __name__ == '__main__':
+    import uvicorn
+    print("Starting local StressIQ API server on http://localhost:8000 ...")
+    uvicorn.run("stress_api:app", host="0.0.0.0", port=8000, reload=True)
