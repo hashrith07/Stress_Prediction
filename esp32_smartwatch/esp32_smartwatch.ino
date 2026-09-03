@@ -71,6 +71,7 @@ void loop() {
 
     if (!isWorn) {
       Serial.println("⚠️ Sensors NOT on skin. Awaiting user contact...");
+      temp = 0.0;
     } else {
       // Finger/Skin detected! Calculate physiological metrics:
       eda = (float)rawGSR * (3.3 / 4095.0) * 2.0; 

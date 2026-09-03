@@ -76,7 +76,7 @@ async def predict(data: StressInput, device: str = "manual"):
                 "input_metrics": {
                     "bpm": 0,
                     "eda": 0.0,
-                    "temperature": round(data.temp, 1) if data.temp > 0 else 0.0
+                    "temperature": 0.0
                 },
                 "synthesized_hrv": {
                     "sdnn_ms": 0.0,

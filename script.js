@@ -34,7 +34,7 @@ function updateResultUI(data) {
         }
         outBpm.textContent = '--';
         outEda.textContent = '--';
-        outTemp.textContent = data.input_metrics && data.input_metrics.temperature > 0 ? `${data.input_metrics.temperature.toFixed(1)} °C` : '--';
+        outTemp.textContent = '--';
         return;
     }
 
