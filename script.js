@@ -24,12 +24,6 @@ const outBpm = document.getElementById('out-bpm');
 const outEda = document.getElementById('out-eda');
 const outTemp = document.getElementById('out-temp');
 
-const zHr = document.getElementById('z-hr');
-const zEda = document.getElementById('z-eda');
-const zTemp = document.getElementById('z-temp');
-
-const mapZScoreToPercent = (z) => Math.min(100, Math.max(0, ((z + 3) / 6) * 100));
-
 function updateResultUI(data) {
     verdictText.textContent = data.verdict;
 
@@ -42,10 +36,6 @@ function updateResultUI(data) {
     outBpm.textContent = `${data.input_metrics.bpm} BPM`;
     outEda.textContent = `${data.input_metrics.eda.toFixed(2)} μS`;
     outTemp.textContent = `${data.input_metrics.temperature.toFixed(1)} °C`;
-
-    zHr.style.width = `${mapZScoreToPercent(data.normalized_metrics.hr_normalized)}%`;
-    zEda.style.width = `${mapZScoreToPercent(data.normalized_metrics.eda_normalized)}%`;
-    zTemp.style.width = `${mapZScoreToPercent(data.normalized_metrics.temp_normalized)}%`;
 }
 
 // =========================================================================
