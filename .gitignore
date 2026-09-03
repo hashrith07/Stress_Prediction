@@ -9,3 +9,6 @@ resume_backup_2.docx
 __pycache__/
 venv/
 node_modules/
+esp32_boot_local/
+*boot*.ino
+
