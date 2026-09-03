@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from typing import Optional
 import joblib
 import numpy as np
 import os
@@ -52,7 +53,8 @@ LATEST_IOT_READING = None
 class StressInput(BaseModel):
     bpm: float = Field(..., description="Current Heart Rate in Beats Per Minute (BPM)", ge=0.0, le=250.0)
     eda: float = Field(..., description="Current Electrodermal Activity / Sweat Level (μS)", ge=0.0, le=100.0)
-    temp: float = Field(..., description="Current Skin Temperature (°C)", ge=0.0, le=60.0)
+    temp: float = Field(..., description="Current Skin Temperature (°C)", ge=-50.0, le=60.0)
+    worn: Optional[bool] = Field(default=True, description="Whether device is currently touching skin")
 
 # -----------------------------------------------------
 # Prediction Endpoint (Saves latest incoming IoT reading)
@@ -61,6 +63,36 @@ class StressInput(BaseModel):
 async def predict(data: StressInput, device: str = "manual"):
     global LATEST_IOT_READING
     try:
+        # =====================================================================
+        # WEAR DETECTION / LEAD-OFF GUARD (Sensors not touching skin)
+        # =====================================================================
+        if (data.worn is False) or (data.bpm == 0.0 and data.eda == 0.0):
+            result = {
+                "worn": False,
+                "stressed": False,
+                "verdict": "NOT WORN",
+                "message": "Sensors not touching skin. Please place finger on sensors.",
+                "confidence": "N/A",
+                "input_metrics": {
+                    "bpm": 0,
+                    "eda": 0.0,
+                    "temperature": round(data.temp, 1) if data.temp > 0 else 0.0
+                },
+                "synthesized_hrv": {
+                    "sdnn_ms": 0.0,
+                    "rmssd_ms": 0.0,
+                    "pnn50_pct": 0.0
+                },
+                "normalized_metrics": {
+                    "hr_normalized": 0.0,
+                    "eda_normalized": 0.0,
+                    "temp_normalized": 0.0
+                }
+            }
+            if device == "iot":
+                LATEST_IOT_READING = {**result, "timestamp": time.time()}
+            return result
+
         # =====================================================================
         # CLINICAL OVERRIDE & DATA VALIDATION GUARDS
         # =====================================================================

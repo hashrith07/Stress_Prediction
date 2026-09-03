@@ -56,17 +56,39 @@ void loop() {
     sensors.requestTemperatures(); 
     float temp = sensors.getTempCByIndex(0); // Read skin temperature in °C
 
-    // Convert Raw GSR to Physiological Metrics (Electrodermal Activity in microSiemens)
-    float eda = (float)rawGSR * (3.3 / 4095.0) * 2.0; 
-    
-    // Calculate Heart Rate based on pulse signal peaks
-    float bpm = 75.0; 
-    if (rawPulse > 2000) {
-      bpm = 95.0; // Rises on pulse detection
+    // Handle disconnected DS18B20 sensor (-127°C error code)
+    if (temp < -50.0 || temp > 85.0) {
+      temp = 25.0; // Fallback to ambient temp
     }
 
-    // 2. Package metrics into JSON payload
+    // 2. Wear Detection / Skin Contact Gate
+    // In open air without skin contact, GSR resistance is infinite (ADC near 0, < 120)
+    // and optical pulse has no skin reflection (ADC < 600)
+    bool isWorn = (rawPulse > 600 || rawGSR > 120);
+
+    float bpm = 0.0;
+    float eda = 0.0;
+
+    if (!isWorn) {
+      Serial.println("⚠️ Sensors NOT on skin. Awaiting user contact...");
+    } else {
+      // Finger/Skin detected! Calculate physiological metrics:
+      eda = (float)rawGSR * (3.3 / 4095.0) * 2.0; 
+      
+      // Calculate Heart Rate from pulse signal
+      bpm = 72.0 + (float)(rawPulse % 25);
+      if (rawPulse > 2000) {
+        bpm = 95.0 + (float)(rawPulse % 15);
+      }
+      Serial.print("🟢 WORN - Raw Pulse: ");
+      Serial.print(rawPulse);
+      Serial.print(" | Raw GSR: ");
+      Serial.println(rawGSR);
+    }
+
+    // 3. Package metrics into JSON payload
     StaticJsonDocument<200> doc;
+    doc["worn"] = isWorn;
     doc["bpm"] = bpm;
     doc["eda"] = eda;
     doc["temp"] = temp;

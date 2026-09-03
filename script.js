@@ -25,12 +25,30 @@ const outEda = document.getElementById('out-eda');
 const outTemp = document.getElementById('out-temp');
 
 function updateResultUI(data) {
+    if (data.worn === false || data.verdict === 'NOT WORN') {
+        verdictBanner.className = 'verdict-banner not-worn';
+        verdictText.textContent = '⚠️ NOT WORN (PLACE FINGER ON SENSORS)';
+        if (connectionBadge) {
+            connectionBadge.className = 'badge-status waiting';
+            connectionBadge.textContent = '🟡 Place Finger on Sensors';
+        }
+        outBpm.textContent = '--';
+        outEda.textContent = '--';
+        outTemp.textContent = data.input_metrics && data.input_metrics.temperature > 0 ? `${data.input_metrics.temperature.toFixed(1)} °C` : '--';
+        return;
+    }
+
     verdictText.textContent = data.verdict;
 
     if (data.stressed) {
         verdictBanner.className = 'verdict-banner stressed';
     } else {
         verdictBanner.className = 'verdict-banner relaxed';
+    }
+
+    if (connectionBadge) {
+        connectionBadge.className = 'badge-status connected';
+        connectionBadge.textContent = '🟢 Live IoT Stream Active';
     }
 
     outBpm.textContent = `${data.input_metrics.bpm} BPM`;
@@ -156,11 +174,13 @@ function startSensorStream() {
 
                 const payload = result.data;
                 
-                // Update Line Graphs
-                updateChart(chartHr, payload.input_metrics.bpm);
-                updateChart(chartEda, parseFloat(payload.input_metrics.eda.toFixed(2)));
+                // Update Line Graphs only if touching skin
+                if (payload.worn !== false && payload.verdict !== 'NOT WORN') {
+                    updateChart(chartHr, payload.input_metrics.bpm);
+                    updateChart(chartEda, parseFloat(payload.input_metrics.eda.toFixed(2)));
+                }
                 
-                // Update diagnostic cards Z-scores and text readouts
+                // Update diagnostic cards and text readouts
                 updateResultUI(payload);
             } else {
                 // Device is offline or went offline

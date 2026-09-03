@@ -364,6 +364,20 @@ h2 {
     animation: alert-pulse-g 2s infinite;
 }
 
+.verdict-banner.not-worn {
+    background: rgba(245, 158, 11, 0.12);
+    border: 2px solid #f59e0b;
+    color: #f59e0b;
+    animation: alert-pulse-y 2s infinite;
+    font-size: 1.15rem;
+}
+
+@keyframes alert-pulse-y {
+    0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.3); }
+    70% { box-shadow: 0 0 0 15px rgba(245, 158, 11, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
 @keyframes alert-pulse-r {
     0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3); }
     70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
