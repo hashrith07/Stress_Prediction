@@ -35,6 +35,7 @@ function updateResultUI(data) {
         outBpm.textContent = '--';
         outEda.textContent = '--';
         outTemp.textContent = '--';
+        resetCharts();
         return;
     }
 
@@ -216,6 +217,19 @@ function updateChart(chart, newVal) {
     chart.update('none');
 }
 
+function resetCharts() {
+    if (chartHr && chartEda) {
+        const hasDataHr = chartHr.data.datasets[0].data.some(v => v !== null);
+        const hasDataEda = chartEda.data.datasets[0].data.some(v => v !== null);
+        if (hasDataHr || hasDataEda) {
+            chartHr.data.datasets[0].data.fill(null);
+            chartEda.data.datasets[0].data.fill(null);
+            chartHr.update();
+            chartEda.update();
+        }
+    }
+}
+
 function stopSensorStream() {
     if (streamInterval) {
         clearInterval(streamInterval);
@@ -230,12 +244,7 @@ function stopSensorStream() {
     }
 
     // Clear charts data
-    if (chartHr && chartEda) {
-        chartHr.data.datasets[0].data.fill(null);
-        chartEda.data.datasets[0].data.fill(null);
-        chartHr.update();
-        chartEda.update();
-    }
+    resetCharts();
 
     output.classList.add('hidden');
     loader.classList.add('hidden');
